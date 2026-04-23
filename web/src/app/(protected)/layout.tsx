@@ -1,33 +1,52 @@
 /**
- * Protected Layout - Authentication Required
+ * Protected Layout — Epic 1, Story 1.2.
  *
- * This layout wraps all routes in the (protected) group and requires authentication.
- * Unauthenticated users are redirected to /auth/signin.
+ * Wraps every authenticated route in the BetterBond application shell:
+ *   <nav>, <main>, <footer> landmarks rendered by @/components/shell/app-shell.
  *
- * Usage:
- * - Place pages that require authentication inside app/(protected)/
- * - The route group "(protected)" doesn't affect the URL path
- * - For role-based access, use requireMinimumRole() or requireExactRole() instead
- *
- * Examples:
- *   app/(protected)/dashboard/page.tsx  → /dashboard (requires auth)
- *   app/(protected)/settings/page.tsx   → /settings (requires auth)
- *
- * For role-specific protection, create nested layouts:
- *   app/(protected)/admin/layout.tsx    → Use requireMinimumRole(UserRole.ADMIN)
+ * Unauthenticated visitors are redirected to /auth/signin (AC-8). The shell
+ * itself — including the route-transition skeleton for BA-4 Option A — lives
+ * in the client AppShell component.
  */
 
+import { Suspense } from 'react';
+
+import { AppShell } from '@/components/shell/app-shell';
 import { requireAuth } from '@/lib/auth/auth-server';
 
 interface ProtectedLayoutProps {
   children: React.ReactNode;
 }
 
+/**
+ * Simple loading skeleton shown in the main region while a child route
+ * suspends during navigation. BA-4 Option A — the user sees "something is
+ * happening" instead of a blank page or stale content.
+ */
+function RouteTransitionSkeleton(): React.ReactElement {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label="Loading page"
+      className="flex flex-col gap-3 animate-pulse"
+    >
+      <div className="h-6 w-1/3 rounded bg-muted" />
+      <div className="h-4 w-2/3 rounded bg-muted" />
+      <div className="h-48 w-full rounded bg-muted" />
+    </div>
+  );
+}
+
 export default async function ProtectedLayout({
   children,
 }: ProtectedLayoutProps): Promise<React.ReactElement> {
-  // Redirects to /auth/signin if not authenticated
+  // Redirects to /auth/signin if not authenticated (AC-8)
   await requireAuth();
 
-  return <>{children}</>;
+  return (
+    <AppShell>
+      <Suspense fallback={<RouteTransitionSkeleton />}>{children}</Suspense>
+    </AppShell>
+  );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Suspense, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -17,21 +17,17 @@ import { Label } from '@/components/ui/label';
 import { signIn } from '@/lib/auth/auth-client';
 
 /**
- * Validates callback URL to prevent open redirect attacks.
- * Only allows relative, same-origin paths.
+ * FRS R2 — on successful sign-in, the user is redirected to the Dashboard
+ * screen. This is the deliberate rule captured in Story 1.2 AC-9: the
+ * landing page is always /dashboard, regardless of any ?callbackUrl=
+ * parameter that may have been added when an unauthenticated visitor was
+ * bounced here from a protected URL.
  */
-function validateCallbackUrl(url: string | null): string {
-  if (!url) return '/dashboard';
-  if (url.startsWith('//')) return '/dashboard';
-  if (!url.startsWith('/')) return '/dashboard';
-  if (url.toLowerCase().match(/^\/*(data|javascript):/i)) return '/dashboard';
-  return url;
-}
+const POST_SIGNIN_DESTINATION = '/dashboard';
 
 function SignInForm(): React.ReactElement {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const callbackUrl = validateCallbackUrl(searchParams.get('callbackUrl'));
+  const callbackUrl = POST_SIGNIN_DESTINATION;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
