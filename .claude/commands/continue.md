@@ -521,13 +521,19 @@ Check the next action from the state data:
 
 ### If the response contains "NEEDS_APPROVAL:"
 
-The coordinator completed Call A and needs user approval.
+The coordinator completed Call A and needs user approval. Handle this as **two separate actions**, in order. You MUST complete Gate A before Gate B.
 
-1. Extract and display the content after "NEEDS_APPROVAL:" as regular conversation text
-2. Use `AskUserQuestion` with the appropriate options for the phase (see orchestrator-rules.md)
-3. **Re-ask rule (QA manual verification):** If the user responds with a free-text question instead of selecting an option, answer their question, then re-ask `AskUserQuestion` with the **full manual verification checklist** included. Read the checklist verbatim from `generated-docs/qa/epic-N-[slug]/story-M-[slug]-verification-checklist.md` — never omit or abbreviate it. The checklist must be visible every time the verification question is presented, not just the first time.
-4. After user selects an option → **new turn with fresh hooks**
-5. Launch a **new coordinator** for the follow-up work. Include in its prompt:
+**Gate A — DISPLAY the payload (text output, no tool call):**
+Extract everything after "NEEDS_APPROVAL:" from the coordinator's response and output it verbatim as regular assistant text. This is a text-only message — do NOT combine it with a tool call. The coordinator's return is visible in your context but **invisible to the user**. A link or document referenced only in your context has not been "presented" until it appears in your assistant-visible output.
+
+**Gate B — ASK for approval (AskUserQuestion):**
+Self-check before invoking the tool: *"Does my most recent assistant text contain the coordinator's NEEDS_APPROVAL payload verbatim — including any markdown link and the full document or summary?"* If not, STOP and complete Gate A first. Only after the self-check passes, call `AskUserQuestion` with the phase-appropriate options (see orchestrator-rules.md).
+
+**Follow-up rules (apply after Gate B):**
+
+1. **Re-ask rule (QA manual verification):** If the user responds with a free-text question instead of selecting an option, answer their question, then re-ask `AskUserQuestion` with the **full manual verification checklist** included. Read the checklist verbatim from `generated-docs/qa/epic-N-[slug]/story-M-[slug]-verification-checklist.md` — never omit or abbreviate it. The checklist must be visible every time the verification question is presented, not just the first time.
+2. After user selects an option → **new turn with fresh hooks**
+3. Launch a **new coordinator** for the follow-up work. Include in its prompt:
    - The base coordinator instructions (same as Step 2)
    - The user's approval decision and any feedback
    - Instructions for what to do next (Call B, revisions, etc.)
