@@ -1,24 +1,14 @@
 /**
  * Integration Test: Auth Helpers & Role-Based Access Control
  *
- * These tests verify OUR authorization logic, not NextAuth internals.
- *
- * Why these tests are valid:
- * - `withRoleProtection` is our custom API wrapper - we test its HTTP responses
- * - `hasRole`, `hasMinimumRole`, etc. are our business logic functions
- * - We mock NextAuth (the external dependency) to test our integration layer
- *
- * We're testing: "Does our auth system return correct HTTP status codes?"
- * We're NOT testing: "Does NextAuth work correctly?"
+ * Updated for Epic 1, Story 1.1 — only two roles (admin / viewer).
  */
 
-import { vi } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { Session } from 'next-auth';
 
-// Type for the mocked auth function (session getter overload)
 type MockAuthFn = ReturnType<typeof vi.fn<() => Promise<Session | null>>>;
 
-// Mock next-auth and related modules before importing auth-helpers
 vi.mock('next-auth', () => ({
   __esModule: true,
   default: vi.fn(),
@@ -42,101 +32,53 @@ vi.mock('@/lib/auth/auth', () => ({
 import {
   hasRole,
   hasAnyRole,
-  hasMinimumRole,
-  isAuthorized,
   withRoleProtection,
 } from '@/lib/auth/auth-helpers';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth/auth';
-import {
-  UserRole,
-  getRoleLevel,
-  isValidRole,
-  DEFAULT_ROLE,
-} from '@/types/roles';
+import { UserRole, isValidRole } from '@/types/roles';
 
-describe('Role Utilities', () => {
-  it('should have correct hierarchy levels (ADMIN > POWER_USER > STANDARD_USER > READ_ONLY)', () => {
-    expect(getRoleLevel(UserRole.ADMIN)).toBe(100);
-    expect(getRoleLevel(UserRole.POWER_USER)).toBe(50);
-    expect(getRoleLevel(UserRole.STANDARD_USER)).toBe(25);
-    expect(getRoleLevel(UserRole.READ_ONLY)).toBe(10);
-  });
-
-  it('should validate role strings correctly', () => {
+describe('Role utilities (2-role model)', () => {
+  it('validates the two supported role strings', () => {
     expect(isValidRole('admin')).toBe(true);
+    expect(isValidRole('viewer')).toBe(true);
     expect(isValidRole('invalid')).toBe(false);
-  });
-
-  it('should default new users to STANDARD_USER', () => {
-    expect(DEFAULT_ROLE).toBe(UserRole.STANDARD_USER);
+    // Retired template roles must be rejected
+    expect(isValidRole('power_user')).toBe(false);
+    expect(isValidRole('standard_user')).toBe(false);
+    expect(isValidRole('read_only')).toBe(false);
   });
 });
 
-describe('Auth Helper Functions', () => {
-  it('hasRole - should match exact role only', () => {
+describe('Auth helper functions (2-role model)', () => {
+  it('hasRole — exact role match only', () => {
     const adminUser = { role: UserRole.ADMIN };
+    const viewerUser = { role: UserRole.VIEWER };
+
     expect(hasRole(adminUser, UserRole.ADMIN)).toBe(true);
-    expect(hasRole(adminUser, UserRole.POWER_USER)).toBe(false);
+    expect(hasRole(adminUser, UserRole.VIEWER)).toBe(false);
+    expect(hasRole(viewerUser, UserRole.VIEWER)).toBe(true);
+    expect(hasRole(viewerUser, UserRole.ADMIN)).toBe(false);
   });
 
-  it('hasAnyRole - should match if user has any of the specified roles', () => {
-    const powerUser = { role: UserRole.POWER_USER };
-    expect(hasAnyRole(powerUser, [UserRole.ADMIN, UserRole.POWER_USER])).toBe(
+  it('hasAnyRole — matches when user role is in the list', () => {
+    const viewerUser = { role: UserRole.VIEWER };
+    expect(hasAnyRole(viewerUser, [UserRole.ADMIN, UserRole.VIEWER])).toBe(
       true,
     );
-    expect(hasAnyRole(powerUser, [UserRole.ADMIN])).toBe(false);
+    expect(hasAnyRole(viewerUser, [UserRole.ADMIN])).toBe(false);
   });
 
-  it('hasMinimumRole - should allow higher roles to access lower-level resources', () => {
-    const adminUser = { role: UserRole.ADMIN };
-    const readOnlyUser = { role: UserRole.READ_ONLY };
-
-    // Admin can access everything
-    expect(hasMinimumRole(adminUser, UserRole.READ_ONLY)).toBe(true);
-    expect(hasMinimumRole(adminUser, UserRole.ADMIN)).toBe(true);
-
-    // Read-only cannot access higher levels
-    expect(hasMinimumRole(readOnlyUser, UserRole.STANDARD_USER)).toBe(false);
-    expect(hasMinimumRole(readOnlyUser, UserRole.READ_ONLY)).toBe(true);
-  });
-
-  it('should return false for null or undefined user', () => {
+  it('returns false for null/undefined users', () => {
     expect(hasRole(null, UserRole.ADMIN)).toBe(false);
     expect(hasAnyRole(undefined, [UserRole.ADMIN])).toBe(false);
-    expect(hasMinimumRole(null, UserRole.READ_ONLY)).toBe(false);
   });
 });
 
-describe('Resource-Based Access Control', () => {
-  it('isAuthorized - should enforce resource-specific permissions', () => {
-    const adminUser = { role: UserRole.ADMIN };
-    const standardUser = { role: UserRole.STANDARD_USER };
-
-    // System settings - admin only
-    expect(isAuthorized(adminUser, 'system-settings', 'read')).toBe(true);
-    expect(isAuthorized(standardUser, 'system-settings', 'read')).toBe(false);
-
-    // Documents - role hierarchy applies
-    expect(isAuthorized(standardUser, 'document', 'write')).toBe(true);
-    expect(isAuthorized(standardUser, 'document', 'delete')).toBe(false);
-  });
-
-  it('isAuthorized - should require admin for unknown resources', () => {
-    const adminUser = { role: UserRole.ADMIN };
-    const powerUser = { role: UserRole.POWER_USER };
-
-    expect(isAuthorized(adminUser, 'unknown-resource', 'read')).toBe(true);
-    expect(isAuthorized(powerUser, 'unknown-resource', 'read')).toBe(false);
-  });
-});
-
-describe('withRoleProtection - API Route Wrapper', () => {
-  // Cast auth to our mock type for the session getter overload
+describe('withRoleProtection — API Route Wrapper (2-role model)', () => {
   const mockAuth = auth as unknown as MockAuthFn;
   const mockRequest = new NextRequest('http://localhost/api/test');
 
-  // Helper to create a mock handler that returns success
   const createMockHandler = () =>
     vi.fn().mockResolvedValue(NextResponse.json({ success: true }));
 
@@ -144,7 +86,7 @@ describe('withRoleProtection - API Route Wrapper', () => {
     vi.clearAllMocks();
   });
 
-  it('should return 401 when user is not authenticated', async () => {
+  it('returns 401 when user is not authenticated', async () => {
     mockAuth.mockResolvedValue(null);
 
     const handler = createMockHandler();
@@ -160,11 +102,15 @@ describe('withRoleProtection - API Route Wrapper', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it('should return 403 when user lacks required role', async () => {
+  it('returns 403 when a viewer tries to reach an admin-only route', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '1', role: UserRole.STANDARD_USER },
+      user: {
+        id: '1',
+        email: 'viewer@agency.example',
+        role: UserRole.VIEWER,
+      },
       expires: new Date().toISOString(),
-    });
+    } as unknown as Session);
 
     const handler = createMockHandler();
     const protectedHandler = withRoleProtection(handler, {
@@ -179,11 +125,15 @@ describe('withRoleProtection - API Route Wrapper', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it('should call handler when user has required role', async () => {
+  it('calls the handler when admin accesses an admin-only route', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '1', role: UserRole.ADMIN },
+      user: {
+        id: '1',
+        email: 'admin@betterbond.example',
+        role: UserRole.ADMIN,
+      },
       expires: new Date().toISOString(),
-    });
+    } as unknown as Session);
 
     const handler = createMockHandler();
     const protectedHandler = withRoleProtection(handler, {
@@ -198,83 +148,15 @@ describe('withRoleProtection - API Route Wrapper', () => {
     expect(handler).toHaveBeenCalledWith(mockRequest);
   });
 
-  it('should support minimumRole option for hierarchy-based checks', async () => {
+  it('returns 500 when the handler throws', async () => {
     mockAuth.mockResolvedValue({
-      user: { id: '1', role: UserRole.ADMIN },
+      user: {
+        id: '1',
+        email: 'admin@betterbond.example',
+        role: UserRole.ADMIN,
+      },
       expires: new Date().toISOString(),
-    });
-
-    const handler = createMockHandler();
-    const protectedHandler = withRoleProtection(handler, {
-      minimumRole: UserRole.POWER_USER,
-    });
-
-    const response = await protectedHandler(mockRequest);
-
-    expect(response.status).toBe(200);
-    expect(handler).toHaveBeenCalled();
-  });
-
-  it('should return 403 when user does not meet minimum role requirement', async () => {
-    mockAuth.mockResolvedValue({
-      user: { id: '1', role: UserRole.READ_ONLY },
-      expires: new Date().toISOString(),
-    });
-
-    const handler = createMockHandler();
-    const protectedHandler = withRoleProtection(handler, {
-      minimumRole: UserRole.POWER_USER,
-    });
-
-    const response = await protectedHandler(mockRequest);
-    const body = await response.json();
-
-    expect(response.status).toBe(403);
-    expect(body.error).toBe('Forbidden - insufficient permissions');
-    expect(handler).not.toHaveBeenCalled();
-  });
-
-  it('should support roles array option for multiple allowed roles', async () => {
-    mockAuth.mockResolvedValue({
-      user: { id: '1', role: UserRole.POWER_USER },
-      expires: new Date().toISOString(),
-    });
-
-    const handler = createMockHandler();
-    const protectedHandler = withRoleProtection(handler, {
-      roles: [UserRole.ADMIN, UserRole.POWER_USER],
-    });
-
-    const response = await protectedHandler(mockRequest);
-
-    expect(response.status).toBe(200);
-    expect(handler).toHaveBeenCalled();
-  });
-
-  it('should return 403 when user role is not in allowed roles array', async () => {
-    mockAuth.mockResolvedValue({
-      user: { id: '1', role: UserRole.READ_ONLY },
-      expires: new Date().toISOString(),
-    });
-
-    const handler = createMockHandler();
-    const protectedHandler = withRoleProtection(handler, {
-      roles: [UserRole.ADMIN, UserRole.POWER_USER],
-    });
-
-    const response = await protectedHandler(mockRequest);
-    const body = await response.json();
-
-    expect(response.status).toBe(403);
-    expect(body.error).toBe('Forbidden - insufficient permissions');
-    expect(handler).not.toHaveBeenCalled();
-  });
-
-  it('should return 500 when handler throws an error', async () => {
-    mockAuth.mockResolvedValue({
-      user: { id: '1', role: UserRole.ADMIN },
-      expires: new Date().toISOString(),
-    });
+    } as unknown as Session);
 
     const handler = vi.fn().mockRejectedValue(new Error('Database error'));
     const protectedHandler = withRoleProtection(handler, {

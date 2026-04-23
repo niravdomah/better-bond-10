@@ -1,0 +1,314 @@
+{
+  "generated": "2026-04-23T18:51:10.468Z",
+  "featureName": "BetterBond Commission Payments POC",
+  "epicsScoped": 1,
+  "totalEpics": 5,
+  "coverage": {
+    "functional": {
+      "total": 44,
+      "covered": 13,
+      "uncovered": [
+        "R8",
+        "R9",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R14",
+        "R15",
+        "R16",
+        "R17",
+        "R18",
+        "R20",
+        "R21",
+        "R22",
+        "R23",
+        "R24",
+        "R25",
+        "R26",
+        "R27",
+        "R28",
+        "R29",
+        "R30",
+        "R31",
+        "R32",
+        "R33",
+        "R34",
+        "R35",
+        "R36",
+        "R37",
+        "R38",
+        "R39"
+      ]
+    },
+    "businessRules": {
+      "total": 13,
+      "covered": 2,
+      "uncovered": [
+        "BR2",
+        "BR3",
+        "BR4",
+        "BR5",
+        "BR6",
+        "BR7",
+        "BR8",
+        "BR9",
+        "BR10",
+        "BR12",
+        "BR13"
+      ]
+    },
+    "nonFunctional": {
+      "total": 10,
+      "covered": 8,
+      "uncovered": [
+        "NFR6",
+        "NFR9"
+      ]
+    },
+    "compliance": {
+      "total": 4,
+      "covered": 3,
+      "uncovered": [
+        "CR4"
+      ]
+    },
+    "overall": {
+      "total": 71,
+      "covered": 26,
+      "percent": 37,
+      "uncovered": [
+        "R8",
+        "R9",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R14",
+        "R15",
+        "R16",
+        "R17",
+        "R18",
+        "R20",
+        "R21",
+        "R22",
+        "R23",
+        "R24",
+        "R25",
+        "R26",
+        "R27",
+        "R28",
+        "R29",
+        "R30",
+        "R31",
+        "R32",
+        "R33",
+        "R34",
+        "R35",
+        "R36",
+        "R37",
+        "R38",
+        "R39",
+        "BR2",
+        "BR3",
+        "BR4",
+        "BR5",
+        "BR6",
+        "BR7",
+        "BR8",
+        "BR9",
+        "BR10",
+        "BR12",
+        "BR13",
+        "NFR6",
+        "NFR9",
+        "CR4"
+      ],
+      "pending": [
+        {
+          "id": "R8",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "R9",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "R10",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "R11",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "R12",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "R13",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "R14",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "R15",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "R16",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "R17",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "R18",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "R20",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R21",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R22",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R23",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R24",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R25",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R26",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R27",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R28",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R29",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R30",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R31",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R32",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R33",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "R34",
+          "claimedByEpic": 4
+        },
+        {
+          "id": "R35",
+          "claimedByEpic": 4
+        },
+        {
+          "id": "R36",
+          "claimedByEpic": 4
+        },
+        {
+          "id": "R37",
+          "claimedByEpic": 4
+        },
+        {
+          "id": "R38",
+          "claimedByEpic": 4
+        },
+        {
+          "id": "R39",
+          "claimedByEpic": 5
+        },
+        {
+          "id": "BR2",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "BR3",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "BR4",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "BR5",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "BR6",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "BR7",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "BR8",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "BR9",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "BR10",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "BR12",
+          "claimedByEpic": 3
+        },
+        {
+          "id": "BR13",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "NFR6",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "NFR9",
+          "claimedByEpic": 2
+        },
+        {
+          "id": "CR4",
+          "claimedByEpic": 2
+        }
+      ],
+      "realGaps": []
+    }
+  },
+  "epicGaps": {},
+  "warnings": []
+}

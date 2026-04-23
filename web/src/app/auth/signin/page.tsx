@@ -1,9 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -20,40 +18,14 @@ import { signIn } from '@/lib/auth/auth-client';
 
 /**
  * Validates callback URL to prevent open redirect attacks.
- * Only allows relative URLs (same-origin).
- *
- * @param url - The callback URL to validate
- * @returns Validated URL (relative) or '/' if invalid
+ * Only allows relative, same-origin paths.
  */
 function validateCallbackUrl(url: string | null): string {
-  // Default to home if no URL provided
-  if (!url) return '/';
-
-  try {
-    // Prevent protocol-relative URLs (//evil.com)
-    if (url.startsWith('//')) {
-      console.warn('Open redirect attempt blocked:', url);
-      return '/';
-    }
-
-    // Only allow relative URLs (must start with /)
-    if (!url.startsWith('/')) {
-      console.warn('Open redirect attempt blocked:', url);
-      return '/';
-    }
-
-    // Additional check: prevent data: or javascript: URIs
-    if (url.toLowerCase().match(/^\/*(data|javascript):/i)) {
-      console.warn('Potential XSS attempt blocked:', url);
-      return '/';
-    }
-
-    // Valid relative URL
-    return url;
-  } catch (error) {
-    console.error('Error validating callback URL:', error);
-    return '/';
-  }
+  if (!url) return '/dashboard';
+  if (url.startsWith('//')) return '/dashboard';
+  if (!url.startsWith('/')) return '/dashboard';
+  if (url.toLowerCase().match(/^\/*(data|javascript):/i)) return '/dashboard';
+  return url;
 }
 
 function SignInForm(): React.ReactElement {
@@ -71,6 +43,20 @@ function SignInForm(): React.ReactElement {
   ): Promise<void> => {
     e.preventDefault();
     setError('');
+
+    // AC-10 — client-side validation stops an empty submission before it
+    // reaches NextAuth. Messages are in plain English.
+    if (!email.trim() || !password) {
+      if (!email.trim() && !password) {
+        setError('Email is required. Password is required.');
+      } else if (!email.trim()) {
+        setError('Email is required.');
+      } else {
+        setError('Password is required.');
+      }
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -79,26 +65,33 @@ function SignInForm(): React.ReactElement {
       if (result.ok) {
         router.push(callbackUrl);
         router.refresh();
+      } else if (result.networkError) {
+        // BA-2 Option A — clear password on network error.
+        setPassword('');
+        setError('Sign-in could not be completed. Please try again.');
       } else {
-        setError(result.error || 'Invalid credentials');
+        // BA-2 Option A — clear password on invalid credentials; preserve email.
+        setPassword('');
+        setError('The email or password is incorrect.');
       }
     } catch {
-      setError('An error occurred during sign in');
+      setPassword('');
+      setError('Sign-in could not be completed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black">
+    <div className="flex min-h-screen items-center justify-center bg-background">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Sign In</CardTitle>
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl tracking-tight">BetterBond</CardTitle>
           <CardDescription>
-            Enter your credentials to access your account
+            Sign in to the Commission Payments console
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <CardContent className="space-y-4">
             {error && (
               <div
@@ -114,12 +107,12 @@ function SignInForm(): React.ReactElement {
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="you@betterbond.example"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
-                aria-label="Email address"
+                aria-label="Email"
                 autoComplete="email"
               />
             </div>
@@ -138,24 +131,15 @@ function SignInForm(): React.ReactElement {
               />
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
+          <CardFooter>
             <Button
               type="submit"
               className="w-full"
               disabled={isLoading}
-              aria-label={isLoading ? 'Signing in...' : 'Sign in'}
+              aria-label={isLoading ? 'Signing in' : 'Sign in'}
             >
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isLoading ? 'Signing in…' : 'Sign In'}
             </Button>
-            <div className="text-sm text-muted-foreground text-center">
-              Don&apos;t have an account?{' '}
-              <Link
-                href="/auth/signup"
-                className="text-primary hover:underline"
-              >
-                Sign up
-              </Link>
-            </div>
           </CardFooter>
         </form>
       </Card>
@@ -168,7 +152,7 @@ export default function SignInPage(): React.ReactElement {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center">
-          <div>Loading...</div>
+          <div>Loading…</div>
         </div>
       }
     >

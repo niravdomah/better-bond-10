@@ -4,14 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Template repository** for building frontend applications with:
+**BetterBond Commission Payments POC** - Internal web app that lets BetterBond payments admins track, park, batch-process, and invoice agent commissions in a single interface, with read-only dashboard and payment-history access for real estate agency staff.
 
-- Next.js 16 (App Router) + React 19 + TypeScript 5 (strict)
-- Tailwind CSS 4 + Shadcn UI (via MCP server)
-- Vitest + React Testing Library
-- Production-ready API client for OpenAPI-defined REST endpoints
+**Tech Stack:** Next.js 16 + React 19 + TypeScript 5 + Tailwind CSS 4 + Shadcn UI
 
-Users clone this template and use Claude Code to generate features, components, and API integrations.
+**Backend API:** Defined in `generated-docs/specs/api-spec.yaml` (canonical) and `documentation/Api Definition.yaml` (user-provided original). Connects to a live REST API at the BetterBond backend for payments, batches, and demo reset; MSW mock handlers back development.
+
+**Planned Epics:**
+1. Auth, Shell, and Navigation Foundation - Sign-in, role-aware top nav, theme switcher, Reset Demo footer, toast infrastructure, and route guards.
+2. Dashboard - Charts, summary tiles, aging report, and agency summary grid with click-through to Payment Management.
+3. Payment Management (Admin only) - Park/unpark/bulk operations, batch initiation, and invoice PDF downloads.
+4. Payments Made - Historical batch browsing with search, detail view, and invoice downloads.
+5. User Management (Admin only) - Provisioning users and assigning admin or viewer roles.
 
 ## Repository Structure
 

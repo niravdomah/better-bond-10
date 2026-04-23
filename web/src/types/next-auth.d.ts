@@ -1,8 +1,11 @@
 /**
- * NextAuth Type Extensions
+ * NextAuth type extensions for BetterBond.
  *
- * This file extends NextAuth's default types to include custom fields
- * like user roles. TypeScript will automatically pick up these declarations.
+ * The authenticated session always exposes:
+ *   - user.id     : stable identifier
+ *   - user.email  : the audit identity used as LastChangedUser (BA-1 Option A)
+ *   - user.role   : 'admin' | 'viewer' (BetterBond 2-role model)
+ *   - user.name   : optional display name
  */
 
 import { DefaultSession, DefaultUser } from 'next-auth';
@@ -10,13 +13,11 @@ import { DefaultJWT } from 'next-auth/jwt';
 
 import { UserRole } from './roles';
 
-/**
- * Extend the Session user object to include role
- */
 declare module 'next-auth' {
   interface Session {
     user: {
       id: string;
+      email: string;
       role: UserRole;
     } & DefaultSession['user'];
   }
@@ -26,11 +27,9 @@ declare module 'next-auth' {
   }
 }
 
-/**
- * Extend the JWT token to include role
- */
 declare module 'next-auth/jwt' {
   interface JWT extends DefaultJWT {
     role: UserRole;
+    email: string;
   }
 }

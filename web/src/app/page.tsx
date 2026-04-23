@@ -1,10 +1,18 @@
-export default function HomePage() {
-  return (
-    <main className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold">Welcome</h1>
-      <p className="text-muted-foreground">
-        Replace this with your feature implementation.
-      </p>
-    </main>
-  );
+/**
+ * Root route.
+ *
+ * AC-1 — unauthenticated visitors always land on /auth/signin.
+ * AC-7 / AC-8 — already signed-in users go straight to /dashboard.
+ */
+
+import { redirect } from 'next/navigation';
+
+import { auth } from '@/lib/auth/auth';
+
+export default async function RootPage(): Promise<never> {
+  const session = await auth();
+  if (session?.user) {
+    redirect('/dashboard');
+  }
+  redirect('/auth/signin');
 }
