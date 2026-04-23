@@ -33,7 +33,14 @@
       "Write(web/**)",
       "Write(**/web/**)",
       "Edit(web/**)",
-      "Edit(**/web/**)"
+      "Edit(**/web/**)",
+      "Bash(npx playwright test*)",
+      "Bash(npx playwright install*)",
+      "Bash(npx playwright --version)",
+      "Bash(cd web && npx playwright test*)",
+      "Bash(cd web && npx playwright install*)",
+      "Bash(cd web && npm run test:e2e*)",
+      "Bash(npm run test:e2e*)"
     ]
   },
   "hooks": {

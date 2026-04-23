@@ -1186,6 +1186,7 @@ Usage:
   node .claude/scripts/transition-phase.js --design-agent complete "agent-name" [--autonomous]
   node .claude/scripts/transition-phase.js --pre-complete-checks --story M [--epic N | --current]
   node .claude/scripts/transition-phase.js --set-manual-verification <passed|auto-skipped|deferred-passed|skipped> --story M [--epic N | --current]
+  node .claude/scripts/transition-phase.js --set-e2e-status <passed|passed-after-fix|failed|escalated|auto-skipped:non-routable|auto-skipped:fixme|user-skipped|user-skipped-after-escalation|missing|running|pending> --story M [--epic N | --current] [--e2e-pass N] [--e2e-fail N] [--e2e-fix-cycles N] [--e2e-targets glob1,glob2,...]
   node .claude/scripts/transition-phase.js --get-deferred-verification [--epic N | --current]
   node .claude/scripts/transition-phase.js --advance-phase
   node .claude/scripts/transition-phase.js --pause-phase
@@ -1488,6 +1489,102 @@ function main() {
       : `Story ${storyArg} manual verification: ${mvValue}`;
 
     console.log(JSON.stringify({ status: 'ok', message: msg }, null, 2));
+    return;
+  }
+
+  // Handle --set-e2e-status (record Playwright E2E verification result for a story)
+  if (args.includes('--set-e2e-status')) {
+    const e2eIdx = args.indexOf('--set-e2e-status');
+    const e2eValue = args[e2eIdx + 1];
+    const validValues = [
+      'pending',
+      'running',
+      'passed',
+      'passed-after-fix',
+      'failed',
+      'escalated',
+      'auto-skipped:non-routable',
+      'auto-skipped:fixme',
+      'user-skipped',
+      'user-skipped-after-escalation',
+      'missing'
+    ];
+
+    if (!validValues.includes(e2eValue)) {
+      console.log(JSON.stringify({
+        status: 'error',
+        message: `--set-e2e-status value must be one of: ${validValues.join(', ')}`
+      }, null, 2));
+      process.exit(1);
+    }
+
+    const storyIdx = args.indexOf('--story');
+    const storyArg = storyIdx !== -1 ? parseInt(args[storyIdx + 1]) : null;
+
+    let epicArg = null;
+    if (args.includes('--current')) {
+      const st = readState();
+      if (st) epicArg = st.currentEpic;
+    } else {
+      const eIdx = args.indexOf('--epic');
+      if (eIdx !== -1) epicArg = parseInt(args[eIdx + 1]);
+    }
+
+    if (!epicArg || !storyArg) {
+      console.log(JSON.stringify({
+        status: 'error',
+        message: '--set-e2e-status requires --story M and --epic N (or --current)'
+      }, null, 2));
+      process.exit(1);
+    }
+
+    // Optional counters and target list
+    const passIdx = args.indexOf('--e2e-pass');
+    const failIdx = args.indexOf('--e2e-fail');
+    const targetsIdx = args.indexOf('--e2e-targets');
+    const fixCycleIdx = args.indexOf('--e2e-fix-cycles');
+
+    const e2ePassCount = passIdx !== -1 ? parseInt(args[passIdx + 1]) : null;
+    const e2eFailCount = failIdx !== -1 ? parseInt(args[failIdx + 1]) : null;
+    const e2eFixCycles = fixCycleIdx !== -1 ? parseInt(args[fixCycleIdx + 1]) : null;
+    const e2eTargets = targetsIdx !== -1 && args[targetsIdx + 1]
+      ? args[targetsIdx + 1].split(',').map(s => s.trim()).filter(Boolean)
+      : null;
+
+    const state = readState();
+    if (!state) {
+      console.log(JSON.stringify({ status: 'error', message: 'No workflow state found' }, null, 2));
+      process.exit(1);
+    }
+
+    if (!state.epics?.[epicArg]?.stories?.[storyArg]) {
+      console.log(JSON.stringify({
+        status: 'error',
+        message: `Epic ${epicArg}, Story ${storyArg} not found in state`
+      }, null, 2));
+      process.exit(1);
+    }
+
+    const story = state.epics[epicArg].stories[storyArg];
+    story.e2eStatus = e2eValue;
+    story.e2eLastRun = new Date().toISOString();
+    if (e2ePassCount !== null && !Number.isNaN(e2ePassCount)) story.e2ePassCount = e2ePassCount;
+    if (e2eFailCount !== null && !Number.isNaN(e2eFailCount)) story.e2eFailCount = e2eFailCount;
+    if (e2eFixCycles !== null && !Number.isNaN(e2eFixCycles)) story.e2eFixCycleCount = e2eFixCycles;
+    if (e2eTargets) story.deferredE2eTargets = e2eTargets;
+
+    writeState(state);
+
+    console.log(JSON.stringify({
+      status: 'ok',
+      message: `Story ${storyArg} E2E status: ${e2eValue}`,
+      e2eStatus: e2eValue,
+      e2eLastRun: story.e2eLastRun,
+      e2ePassCount: story.e2ePassCount ?? null,
+      e2eFailCount: story.e2eFailCount ?? null,
+      e2eFixCycleCount: story.e2eFixCycleCount ?? null,
+      deferredE2eTargets: story.deferredE2eTargets ?? []
+    }, null, 2));
     return;
   }
 

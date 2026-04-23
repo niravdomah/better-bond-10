@@ -50,6 +50,12 @@ next-env.d.ts
 # Generated dashboard (regenerable via /dashboard)
 generated-docs/dashboard.html
 
+# Playwright artifacts
+web/test-results/
+web/playwright-report/
+web/playwright/.cache/
+web/blob-report/
+
 # SpecStory tool artifacts (CLI config and usage stats are local-only)
 /.specstory/cli/
 /.specstory/statistics.json

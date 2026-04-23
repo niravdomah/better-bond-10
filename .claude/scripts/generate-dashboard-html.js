@@ -87,6 +87,52 @@ function phaseTagClass(phase) {
   return map[phase] || 'tag-gray';
 }
 
+// Render the E2E (Playwright) status row for a story card. Returns '' when the
+// story has no E2E state at all (pre-Playwright stories, or phases before QA).
+function renderE2eRow(story) {
+  const status = story.e2eStatus;
+  if (!status) return '';
+
+  // Map status → (label, color, extra info)
+  const styleMap = {
+    'passed':                          { label: 'E2E passed',                               color: 'var(--green)' },
+    'passed-after-fix':                { label: 'E2E passed (after auto-fix)',              color: 'var(--green)' },
+    'failed':                          { label: 'E2E failed',                               color: 'var(--red)' },
+    'escalated':                       { label: 'E2E escalated — awaiting user',       color: 'var(--red)' },
+    'auto-skipped:non-routable':       { label: 'E2E skipped (non-routable)',               color: 'var(--sub)' },
+    'auto-skipped:fixme':              { label: 'E2E skipped (test.fixme)',                 color: 'var(--sub)' },
+    'user-skipped':                    { label: 'E2E skipped (user)',                       color: 'var(--sub)' },
+    'user-skipped-after-escalation':   { label: 'E2E skipped after escalation',             color: 'var(--peach)' },
+    'missing':                         { label: 'E2E spec missing — QA halted',        color: 'var(--red)' },
+    'running':                         { label: 'E2E running…',                        color: 'var(--primary)' },
+    'pending':                         { label: 'E2E pending',                              color: 'var(--sub)' }
+  };
+  const style = styleMap[status] || { label: `E2E: ${status}`, color: 'var(--sub)' };
+
+  const pass = story.e2ePassCount;
+  const fail = story.e2eFailCount;
+  const counts = (pass != null || fail != null)
+    ? ` <span style="color:var(--sub)">(${pass ?? 0} passed${fail ? `, ${fail} failed` : ''})</span>`
+    : '';
+
+  const fixCycles = story.e2eFixCycleCount;
+  const fixCycleNote = fixCycles
+    ? ` <span style="color:var(--sub)">— ${fixCycles} auto-fix cycle${fixCycles > 1 ? 's' : ''}</span>`
+    : '';
+
+  const deferred = Array.isArray(story.deferredE2eTargets) ? story.deferredE2eTargets : [];
+  const deferredNote = deferred.length
+    ? `<div style="margin-left:24px;margin-top:4px;font-size:11px;color:var(--sub)">Included deferred specs: ${deferred.map(esc).join(', ')}</div>`
+    : '';
+
+  const lastRun = story.e2eLastRun ? ` <span style="color:var(--sub)">· ${esc(story.e2eLastRun.slice(0, 16).replace('T', ' '))}Z</span>` : '';
+
+  return `<div style="margin-bottom:10px;font-size:13px">
+    <span style="color:${style.color};font-weight:600">● ${esc(style.label)}</span>${counts}${fixCycleNote}${lastRun}
+    ${deferredNote}
+  </div>`;
+}
+
 // --- Build sections ---
 const w = data.workflow || {};
 const currentPhase = w.currentPhase || 'NONE';
@@ -720,6 +766,8 @@ function buildSections() {
         ? `<div style="margin-top:8px;font-size:12px;color:var(--peach)">&#9888; ${tr.baDecisionsPending} BA decision${tr.baDecisionsPending > 1 ? 's' : ''} pending</div>`
         : '';
 
+      const e2eRow = renderE2eRow(story);
+
       return `
         <div class="card" style="margin-bottom:12px"${currentMarker}>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -728,6 +776,7 @@ function buildSections() {
             </div>
             <span class="label-sub">${esc(counterLabel)}</span>
           </div>
+          ${e2eRow}
           <table class="trace-table">
             <thead><tr><th style="width:1%;white-space:nowrap">AC</th><th>Criterion</th><th style="width:1%;white-space:nowrap;text-align:center">Designed</th><th style="width:1%;white-space:nowrap;text-align:center">Tested</th><th style="width:1%;white-space:nowrap;text-align:center">&#9679;</th></tr></thead>
             <tbody>${rows}</tbody>

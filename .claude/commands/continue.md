@@ -351,36 +351,94 @@ After Call B returns:
 
 Current epic: [N], Current story: [M]
 
-QA has 3 calls with a manual verification checkpoint between Call B and Call C.
+QA has 3 calls plus an automated Playwright E2E pre-check and a manual verification checkpoint between Call B and Call C.
 
 Launch code-reviewer Call A:
 "This is Call A — code review only. Do NOT run quality gates or commit."
 
 Launch code-reviewer Call B:
-"This is Call B — run quality gates and return results. Also read the story file and compose the manual verification checklist. IMPORTANT: You MUST persist the checklist to generated-docs/qa/epic-N-[slug]/story-M-[slug]-verification-checklist.md (create the directory if needed) — this file is the single source of truth for all re-verification prompts during QA fix cycles. Return the checklist text in your response as well. Do NOT commit."
+"This is Call B — run quality gates and return results. Also read the story file and compose the manual verification checklist. IMPORTANT: You MUST persist the checklist to generated-docs/qa/epic-N-[slug]/story-M-[slug]-verification-checklist.md (create the directory if needed) — this file is the single source of truth for all re-verification prompts during QA fix cycles. Return the checklist text in your response as well. Also return a `Route:` line (`Route: <path>` or `Route: N/A`) and a `Deferred stories:` line (e.g., `Deferred stories: epic-1-story-6, epic-1-story-7` or `Deferred stories: none`). Do NOT commit."
 
-After Call B returns:
-Check if Call B's response indicates a non-routable component (Route: N/A).
+After Call B returns, EXECUTE THE E2E VERIFICATION STEP BEFORE ASKING THE USER ANYTHING (see below). The parent orchestrator delegates this to a coordinator — it never runs Playwright directly.
 
-If NON-ROUTABLE: Display Call B's component-only note to the user, then auto-proceed to spec compliance check with verification status `auto-skipped`. Do NOT return NEEDS_APPROVAL for manual verification — the user can't reach the component in the browser yet.
+### E2E Verification (Gate 6a) — automated pre-check
 
-If ROUTABLE: Return with "NEEDS_APPROVAL:" followed by:
-1. The quality gate results (in plain, non-technical language)
-2. The manual verification checklist
-3. The instruction: "Have you verified [Story Name] in the browser? Options: All tests pass / Issues found / Skip for now"
+Launch a coordinator with this prompt:
+
+"You are an E2E verification coordinator.
+
+## Story
+Epic [N], Story [M]
+Call B result — Route: [route], Deferred stories: [list]
+
+## Your Tasks
+
+1. Build the combined target set:
+   - Always include: web/e2e/epic-[N]-story-[M]-*.spec.ts
+   - For each deferred story (X,Y) from Call B: also include web/e2e/epic-X-story-Y-*.spec.ts
+
+2. For each target glob, resolve the actual spec file on disk (via ls/glob). Classify:
+   - Missing → return NEEDS_APPROVAL with the three-way halt prompt (see orchestrator-rules.md E2E Halt Prompts).
+   - Exists but all tests wrapped in test.fixme( (grep check, no Playwright run) → if current story, treat as skip. If deferred story, halt with three-way prompt.
+   - Exists with at least one live test( → include in Playwright run.
+
+3. If Route is N/A, skip Playwright entirely. Record e2eStatus: auto-skipped:non-routable and return.
+
+4. If all targets resolve as live:
+   cd web && npx playwright test [glob1] [glob2] ... --reporter=json > /tmp/e2e-report.json
+   Capture exit code.
+
+5. On exit 0: record e2eStatus: passed via transition-phase.js; return a summary line (N tests passed across M specs). Parent proceeds to manual verification.
+
+6. On non-zero exit:
+   Parse the failing tests from /tmp/e2e-report.json.
+   Launch developer with the failing-tests summary + report path as 'issues reported':
+     'Fix these E2E failures in Epic [N], Story [M]: [summary]. The full Playwright JSON report is at /tmp/e2e-report.json and traces are under web/test-results/. Do NOT run quality gates. Do NOT commit. Do NOT use AskUserQuestion.'
+   After developer returns, re-run the Playwright command from step 4.
+   If re-run passes: record e2eStatus: passed-after-fix, return a fix summary + success line.
+   If re-run fails: increment e2eFixCycleCount. Repeat from the developer call. Cap at 3 cycles.
+   After 3 consecutive failures: record e2eStatus: escalated and return NEEDS_APPROVAL with the latest report and three options: 'Fix manually', 'Skip E2E this round', or 'Mark failing specs test.fixme()'.
+
+7. Persist all state via: node .claude/scripts/transition-phase.js --e2e-status <status>
+
+Do NOT use AskUserQuestion.
+Do NOT run Vitest, lint, build, or test:quality.
+Do NOT commit or run phase transitions other than --e2e-status.
+Do NOT present manual verification — that's the parent's job."
+
+### After E2E resolves
+
+Read the e2eStatus from workflow state, then:
+
+If Route was N/A:
+  Return NEEDS_APPROVAL with Call B's component-only note only (no manual verification prompt) so spec compliance can proceed with auto-skipped status.
+
+If Route is concrete AND E2E passed/skipped cleanly:
+  Return with "NEEDS_APPROVAL:" followed by:
+  1. The quality gate results (plain language)
+  2. The E2E result line (e.g., "End-to-end tests passed in a live browser (N tests).")
+  3. The manual verification checklist (verbatim)
+  4. "Have you verified [Story Name] in the browser? Options: All tests pass / Issues found / Skip for now"
+
+If Route is concrete AND E2E escalated to the user:
+  Return with "NEEDS_APPROVAL:" followed by the escalation payload (latest Playwright report + three options). Manual verification comes AFTER the user resolves the escalation.
 ```
 
-**Handling "Issues found" (QA fix cycle):**
+**Handling "Issues found" (QA fix cycle) — user-triggered:**
 
 When the user selects "Issues found" after manual verification, the parent orchestrator must delegate fixes to a coordinator — NEVER fix issues directly (this triggers the hook-dispatch bug that the dispatcher pattern exists to prevent).
 
 See the **QA Fix Cycle** section in orchestrator-rules.md for the full coordinator prompt and flow. In summary:
 
 1. `AskUserQuestion`: ask user to describe the issues → **fresh turn**
-2. Launch coordinator: developer fixes → returns NEEDS_APPROVAL with fix summary (no tests or quality gates — those run once in Call C)
+2. Launch coordinator: developer fixes → coordinator re-runs the E2E Verification step (same combined target set) to catch any new regressions → returns NEEDS_APPROVAL with fix summary + E2E result (no Vitest quality gates — those run once in Call C)
 3. Present fix summary → `AskUserQuestion` for re-verification → **fresh turn**
 4. If "Issues found" again → repeat (each cycle gets fresh hooks)
 5. If passed/skipped → proceed to spec compliance check (see below), then Call C
+
+**Handling Playwright failures — E2E-triggered (no user prompt):**
+
+Playwright failures during the E2E Verification step trigger an automatic fix cycle with no user interaction up to 3 attempts. The coordinator handles everything internally. The user is only prompted on the 4th attempt (escalation) with the three options. See orchestrator-rules.md for the full flow.
 
 **Spec Compliance Check (Gate 6 — MANDATORY between manual verification and Call C):**
 

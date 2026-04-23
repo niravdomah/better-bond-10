@@ -38,10 +38,13 @@ npm run dev          # Dev server (http://localhost:3000)
 npm run build        # Production build
 npm run lint         # Linting
 npm run lint:fix     # Auto-fix lint issues
-npm test             # Run all tests
+npm test             # Run all tests (Vitest)
 npm test -- path/to/file.test.tsx  # Run single test file
 npm run test:watch   # Watch mode for development
 npm run test:quality # Validate test quality (must pass)
+npm run test:e2e     # Run Playwright E2E specs (auto-starts dev server via webServer)
+npm run test:e2e:ui  # Interactive Playwright debugger
+npm run test:e2e:install  # One-time: download Chromium (~120 MB)
 ```
 
 ## Workflow Commands (Claude Code)
@@ -189,6 +192,12 @@ These are ALL development requests that require the TDD workflow.
 
 **Key principle:** When in doubt, redirect. It is always better to enter the workflow and discover the request is small than to write untracked, untested code outside it. The workflow handles everything from one-line fixes to multi-epic features.
 
+### 10. Every Story Needs a Playwright Spec
+
+Every routable story must have a Playwright spec at `web/e2e/epic-<N>-story-<M>-<slug>.spec.ts`. Non-routable stories still get a spec file, but the suite is wrapped in `test.fixme()` with a one-line reason comment. The QA phase **halts** if a routable story has no spec file — this is a workflow error, not a silent skip.
+
+The spec runs automatically during QA before the user's manual verification checklist is shown. A failure auto-triggers a fix cycle (developer → re-run Playwright → loop until green or 3-cycle escalation). See `web/e2e/README.md` for conventions and `.claude/agents/test-generator.md` for when to route scenarios to Playwright vs Vitest vs the manual checklist.
+
 ## Testing Strategy
 
 ### Focus on Integration Tests
@@ -243,6 +252,26 @@ expect(screen.getByText('Sales: $1,234')).toBeInTheDocument();
 - **Async updates:** Use `waitFor` for assertions
 
 **Never use `.skip()`** — tests must either pass or fail. During TDD red phase, let tests fail naturally (don't skip them). If you can't fix a mock, ask the user — don't skip the test.
+
+### End-to-End Tests (Playwright)
+
+Playwright specs in `web/e2e/` exercise the running Next.js app in a real Chromium browser. They are a **pre-check**, not a replacement for manual verification — they run automatically during QA before the manual checklist is shown to the user.
+
+**When to write an E2E test vs a Vitest integration test:**
+
+| Belongs in Playwright | Belongs in Vitest |
+|---|---|
+| Sign-in flows against the real `authorize()` callback | Component rendering + axe accessibility |
+| Redirects, route guards, middleware execution | Hook behavior and form-field logic |
+| Navigate-and-assert-next-page flows | Schema validation (Zod) |
+| localStorage surviving a real page reload | Anything provable with mocked HTTP in jsdom |
+| Role-aware visibility on rendered pages | |
+
+**Don't duplicate.** A sign-in redirect belongs in Playwright — asserting it in Vitest would require mocking `signIn()`, which recreates the exact blind spot this pipeline exists to close (see the Story 1.1 bcrypt miss).
+
+**`test.fixme()` policy:** allowed only for explicitly non-routable stories, with a one-line comment explaining why. Prohibited as a tool for avoiding test failures. The QA phase halts if a deferred story's spec is still `test.fixme()` when re-verified on a later routable story.
+
+See `web/e2e/README.md` for spec conventions, fixtures, and the template.
 
 ## Architecture Quick Reference
 

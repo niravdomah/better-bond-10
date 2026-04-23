@@ -498,66 +498,145 @@ Launch `code-reviewer`:
 **Call B — Simplify + Quality Gates:**
 
 Launch `code-reviewer`:
-> "This is Call B — first run /simplify on the changed code, then run quality gates and return results. Also read the story file and the test-handoff document at [test-handoff path] (for any runtime verification checklist items) and compose the manual verification checklist. IMPORTANT: You MUST persist the checklist to generated-docs/qa/epic-N-[slug]/story-M-[slug]-verification-checklist.md (create the directory if needed) — this file is the single source of truth for all re-verification prompts during QA fix cycles. Return the checklist text in your response as well. If no test-handoff document exists at that path, proceed without it. Do NOT commit. Just return the gate results and the checklist."
+> "This is Call B — first run /simplify on the changed code, then run quality gates and return results. Also read the story file and the test-handoff document at [test-handoff path] (for any runtime verification checklist items) and compose the manual verification checklist. IMPORTANT: You MUST persist the checklist to generated-docs/qa/epic-N-[slug]/story-M-[slug]-verification-checklist.md (create the directory if needed) — this file is the single source of truth for all re-verification prompts during QA fix cycles. Return the checklist text in your response as well. If no test-handoff document exists at that path, proceed without it. Also return a `Route:` line (either `Route: <path>` for routable stories or `Route: N/A` for component-only work) and a `Deferred stories:` line listing any earlier non-routable stories whose verification items you folded into this story's checklist (format: `Deferred stories: epic-1-story-6, epic-1-story-7` or `Deferred stories: none`). Do NOT commit. Just return the gate results, the `Route:` line, the `Deferred stories:` line, and the checklist."
+
+**E2E Verification (Gate 6a) — runs between Call B and Manual Verification:**
+
+After Call B returns quality gates and the manual checklist, but BEFORE the user is asked to verify in the browser, Playwright runs against a live dev server. The goal is to catch runtime issues (broken auth flows, wrong redirects, missing backend calls) without the user having to reproduce them. **This step never asks the user on pass — only on escalation after 3 failed auto-fix cycles.**
+
+Delegate this step to a coordinator subagent — the parent orchestrator never runs Playwright directly (2–3 tool-call limit).
+
+1. **Resolve the target set from Call B's output:**
+   - Parse `Route:` — if `Route: N/A`, record `e2eStatus: auto-skipped:non-routable` in workflow state and proceed directly to the non-routable manual-verification branch below. Do not check for spec files.
+   - Parse `Deferred stories:` — extract the list of (epic-N, story-M) pairs.
+   - Build target globs: `[web/e2e/epic-<N>-story-<M>-*.spec.ts]` for the current story PLUS one glob per deferred story. Call this the **combined target set**.
+
+2. **Classify each target in the combined set** using a simple file inspection (grep, no Playwright run yet):
+
+   | Target status | Decision |
+   |---|---|
+   | Spec file missing | Halt. Return `NEEDS_APPROVAL:` with the three-way prompt described in "Halt prompts" below. Record `e2eStatus: missing`. |
+   | Spec exists, every `test(` block is inside a `test.fixme(` wrapper (grep for `test.fixme(` and absence of unwrapped `test(` or `test.only(`) | Target is a skip. If every target in the set is a skip, record `e2eStatus: auto-skipped:fixme` and proceed to manual verification. If this target is a deferred story being re-verified, halt with the three-way prompt — deferred re-verification is the forcing function that converts skips into live tests. |
+   | Spec exists with at least one live `test(` | Target is live. Include it in the Playwright run. |
+
+3. **Run Playwright against all live targets:**
+
+   ```bash
+   cd web && npx playwright test <glob-1> <glob-2> ... --reporter=json > /tmp/e2e-report.json
+   ```
+
+   Capture the JSON report and the exit code.
+
+4. **On exit 0 (PASS):**
+   - Record `e2eStatus: passed`, set `e2eLastRun`, `e2ePassCount`, `e2eFailCount`, `deferredE2eTargets` (the deferred globs that were included) in workflow state via the transition-phase script.
+   - Display: "End-to-end tests passed in a live browser. (N tests across M specs)."
+   - Proceed to manual verification (display checklist + AskUserQuestion).
+
+5. **On non-zero exit (FAIL):**
+   - Record `e2eStatus: failed`.
+   - Auto-trigger the **E2E fix cycle** (see "QA Fix Cycle" below) — do NOT ask the user. Pass the failing-tests summary from the JSON report as the "issues reported" payload.
+
+**Halt prompts (when a spec is missing or a deferred spec is still `test.fixme()`):**
+
+> "<context sentence>. Options:
+> - (a) Re-run test-generator to produce/replace the Playwright spec now.
+> - (b) Mark the story `test.fixme()` permanently in the spec file, documenting the reason in a comment above.
+> - (c) Skip E2E for this story this round (records `e2eStatus: user-skipped` and proceeds to manual verification)."
+
+Context sentence templates:
+- Missing current-story spec: "Story N-M was built as routable (`<path>`) but has no Playwright spec at web/e2e/epic-N-story-M-*.spec.ts."
+- Missing deferred-story spec: "Deferred story X-Y is being re-verified because it's now reachable through the current story, but has no Playwright spec."
+- Deferred `test.fixme()` on re-verification: "Deferred story X-Y has a Playwright spec wrapped in `test.fixme()` — reaching it via the current story's flow is the moment to convert the skip into a live assertion."
 
 **Orchestrator — Manual Verification:**
 
-After Call B returns:
+After Call B returns AND E2E Verification resolves:
 1. Display the quality gate results to the user (in plain, non-technical language)
 2. Check if Call B's response indicates a **non-routable component** (Route: `N/A`)
 
 **If non-routable (component only):**
 3. Display Call B's component-only note to the user
-4. Auto-proceed to **Spec Compliance Check (Gate 6)** with verification status `auto-skipped` — do NOT ask the user to verify in the browser (they can't reach the component yet)
+4. Record `e2eStatus: auto-skipped:non-routable` (set by the E2E step above)
+5. Auto-proceed to **Spec Compliance Check (Gate 6)** with verification status `auto-skipped` — do NOT ask the user to verify in the browser (they can't reach the component yet)
 
 **If routable:**
-3. Display the manual verification checklist from Call B's response (including any deferred verification items from earlier stories)
-4. Use `AskUserQuestion` directly:
+3. Display the E2E result line ("End-to-end tests passed in a live browser." or the user-resolved outcome) so the user knows an automated pre-check ran.
+4. Display the manual verification checklist from Call B's response (including any deferred verification items from earlier stories)
+5. Use `AskUserQuestion` directly:
    - "Have you verified [Story Name] in the browser?"
    - Options: "All tests pass" / "Issues found" / "Skip for now"
-5. If "All tests pass" or "Skip for now": proceed to **Spec Compliance Check (Gate 6)** below
-6. If "Issues found": follow the **QA Fix Cycle** below
+6. If "All tests pass" or "Skip for now": proceed to **Spec Compliance Check (Gate 6)** below
+7. If "Issues found": follow the **QA Fix Cycle** below
 
-#### QA Fix Cycle (Issues Found)
+#### QA Fix Cycle (Issues Found OR E2E Failed)
 
 **CRITICAL:** The orchestrator must NEVER fix issues directly — this triggers the hook-dispatch bug. Always delegate to a coordinator subagent.
 
-When the user selects "Issues found":
+The fix cycle has **two triggers**:
+
+- **User-triggered:** the user selected "Issues found" during manual verification.
+- **E2E-triggered:** Playwright produced failing results during the E2E Verification step, before the user saw the manual checklist. **The user is not prompted** — the orchestrator treats the Playwright JSON report as the "issues reported" payload and delegates automatically.
+
+**User-triggered flow:**
 
 1. Use `AskUserQuestion`: "What did you find? Describe the issues so I can fix them."
-2. After user responds → **new turn with fresh hooks** → launch a **new coordinator** with prompt:
+2. After user responds → **new turn with fresh hooks** → launch a new coordinator (see prompt template below) with the user's description as `## Issues Reported`.
+3. When the fix coordinator returns with NEEDS_APPROVAL → re-run the **E2E Verification step** against the combined target set. If it passes, display the fix summary + full checklist → `AskUserQuestion` with the same three options. If it fails, the E2E-triggered flow takes over (step 3 onward below).
 
-   ```
-   You are a QA fix-cycle coordinator. The user found issues during manual verification.
+**E2E-triggered flow:**
 
-   ## Issues Reported
-   [paste user's description]
+1. Extract the failing-tests summary from the Playwright JSON report (`suites[].specs[].tests[].results[]` where `status !== 'passed'`). Include: test title, error message, relevant trace/snapshot paths, and the file:line of the failing assertion.
+2. Launch a new coordinator (see prompt template below) with the extracted summary as `## Issues Reported (from Playwright)`, plus `## E2E report path: /tmp/e2e-report.json` so the developer can inspect traces.
+3. When the coordinator returns → re-run the **E2E Verification step** against the same combined target set (not a broader run — we want targeted signal).
+4. **If re-run passes:** proceed to the manual verification prompt with a note: "Fixed N failing E2E tests automatically; please still verify in the browser." Record `e2eStatus: passed-after-fix`, set `e2eFixCycleCount: <N>`.
+5. **If re-run fails:** increment `e2eFixCycleCount` and loop from step 2. **Cap at 3 consecutive failed cycles** — on the 4th attempt, escalate to the user:
+   - Record `e2eStatus: escalated`.
+   - Return `NEEDS_APPROVAL:` with the latest Playwright report and the three options:
+     - (a) "Fix manually" — exits the loop so the user can take over in the chat.
+     - (b) "Skip E2E this round and continue to manual verification" — records `e2eStatus: user-skipped-after-escalation` and proceeds.
+     - (c) "Mark the failing specs `test.fixme()` and proceed" — coordinator edits the spec file to wrap the failing `test()` blocks in `test.fixme()` with a comment explaining the escalation, then proceeds.
 
-   ## Current State
-   [paste state JSON]
+**Coordinator prompt template (both flows):**
 
-   ## Your Tasks
-   1. Launch developer agent to fix the reported issues:
-      "Fix these issues in Epic [N], Story [M]: [issues]. Do NOT run quality gates. Do NOT commit. Do NOT use AskUserQuestion."
-   2. After the developer returns, summarize what was changed (files modified, what the fix does).
-      Do NOT launch code-reviewer Call A or Call B. Do NOT run quality gates or tests.
-      Quality gates will run once in Call C after the user approves the fix.
-   3. Read the verification checklist from generated-docs/qa/epic-N-[slug]/story-M-[slug]-verification-checklist.md (use the same epic/story slug from the story file path). Return with "NEEDS_APPROVAL:" followed by:
-      a. A plain-language summary of the fix
-      b. The COMPLETE verification checklist (copied verbatim from the file — do not rephrase or abbreviate)
-      c. "Have you verified [Story Name] in the browser? Options: All tests pass / Issues found / Skip for now"
+```
+You are a QA fix-cycle coordinator. <trigger sentence>
 
-   Follow all rules in orchestrator-rules.md — especially scoped call patterns and voice guidelines.
-   Do NOT use AskUserQuestion — return NEEDS_APPROVAL instead.
-   Do NOT commit or run transition scripts.
-   Do NOT run quality gates, tests, /simplify, or code review — those run once at the end.
-   ```
+## Trigger
+<"User found issues during manual verification." OR "Playwright E2E tests failed during the QA pre-check.">
+
+## Issues Reported
+[paste user's description OR the Playwright failing-tests summary]
+
+## E2E report path (E2E-triggered only)
+/tmp/e2e-report.json — includes per-test traces, screenshots in web/test-results/.
+
+## Current State
+[paste state JSON]
+
+## Your Tasks
+1. Launch developer agent to fix the reported issues:
+   "Fix these issues in Epic [N], Story [M]: [issues]. <If E2E-triggered: "The Playwright JSON report at /tmp/e2e-report.json contains full failure details, traces, and screenshots."> Do NOT run quality gates. Do NOT commit. Do NOT use AskUserQuestion."
+2. After the developer returns, summarize what was changed (files modified, what the fix does).
+   Do NOT launch code-reviewer Call A or Call B. Do NOT run quality gates or Vitest tests.
+   Quality gates will run once in Call C after the fix resolves.
+3. Read the verification checklist from generated-docs/qa/epic-N-[slug]/story-M-[slug]-verification-checklist.md. Return with "NEEDS_APPROVAL:" followed by:
+   a. A plain-language summary of the fix.
+   b. The COMPLETE verification checklist (copied verbatim from the file — do not rephrase or abbreviate).
+   c. Only for user-triggered cycles: "Have you verified [Story Name] in the browser? Options: All tests pass / Issues found / Skip for now"
+   d. For E2E-triggered cycles: note that Playwright will re-run automatically — the user doesn't need to re-verify unless that run passes.
+
+Follow all rules in orchestrator-rules.md — especially scoped call patterns and voice guidelines.
+Do NOT use AskUserQuestion — return NEEDS_APPROVAL instead.
+Do NOT commit or run transition scripts.
+Do NOT run quality gates, Vitest, /simplify, or code review — those run once at the end.
+Do NOT run Playwright yourself — the parent orchestrator re-runs it after you return.
+```
 
 **CRITICAL: Always re-present the full manual verification checklist.** Every time the user is asked to verify or re-verify in the browser — whether on first presentation or after any number of fix cycles — include the complete checklist from the `verification-checklist.md` file. Never abbreviate it, never remove steps, and never refer the user to a previous message. The checklist must be self-contained each time it is shown.
 
-3. When the fix coordinator returns with NEEDS_APPROVAL → display the fix summary and the full checklist → use `AskUserQuestion` with the same options as before
-4. If user selects "Issues found" again → repeat from step 1 (each cycle gets a fresh turn with fresh hooks)
-5. If "All tests pass" or "Skip for now" → proceed to spec compliance check, noting that a fix cycle occurred (see below)
+After a fix cycle (either trigger) resolves:
+- User-triggered, user says "Issues found" again → repeat the user-triggered flow (fresh hooks each turn).
+- Proceeding to manual verification → proceed to spec compliance check afterward, noting that a fix cycle occurred (see below).
 
 #### Spec Compliance Check (Gate 6)
 
@@ -626,11 +705,11 @@ Pass the verification status into Call C so it can record it in workflow state. 
 
 If **no fix cycle** occurred and **spec compliance passed or was skipped** (user confirmed on first attempt or auto-skipped):
 
-> "The user confirmed manual verification. Status: [passed|auto-skipped|skipped]. [If deferred stories were included in the checklist and the user confirmed: Also mark stories N, M as deferred-passed.] IMPORTANT: Before staging, run `node .claude/scripts/transition-phase.js --pre-complete-checks --current --story M` (replacing M with the story number) to auto-check all acceptance criteria in the story file. Then proceed to commit and transition to COMPLETE. Do NOT run quality gates again — they already passed before manual verification. [If spec-compliance-watchdog Option B was used: Also stage generated-docs/test-design/ — the spec documents were updated to match the implementation.]"
+> "The user confirmed manual verification. Status: [passed|auto-skipped|skipped]. E2E: [passed|auto-skipped:non-routable|auto-skipped:fixme|user-skipped]. [If deferred stories were included in the checklist and the user confirmed: Also mark stories N, M as deferred-passed.] IMPORTANT: Before staging, run `node .claude/scripts/transition-phase.js --pre-complete-checks --current --story M` (replacing M with the story number) to auto-check all acceptance criteria in the story file. Then proceed to commit and transition to COMPLETE. Do NOT run quality gates again — they already passed before manual verification, and E2E already ran. [If spec-compliance-watchdog Option B was used: Also stage generated-docs/test-design/ — the spec documents were updated to match the implementation.] Stage the Playwright spec file web/e2e/epic-N-story-M-*.spec.ts along with the Vitest tests."
 
-If a **fix cycle occurred** (code was changed during QA):
+If a **fix cycle occurred** (code was changed during QA — either user-triggered or E2E-triggered):
 
-> "The user confirmed manual verification after a QA fix cycle. Status: [passed|skipped]. [If deferred stories were included in the checklist and the user confirmed: Also mark stories N, M as deferred-passed.] IMPORTANT: Before staging, run `node .claude/scripts/transition-phase.js --pre-complete-checks --current --story M` (replacing M with the story number) to auto-check all acceptance criteria in the story file. Code was changed during the fix cycle, so you MUST re-run all quality gates before committing. If any gate fails, fix the issue and re-run until all gates pass. Then proceed to commit and transition to COMPLETE. [If spec-compliance-watchdog Option B was used: Also stage generated-docs/test-design/ — the spec documents were updated to match the implementation.]"
+> "The user confirmed manual verification after a QA fix cycle. Status: [passed|skipped]. E2E: [passed|passed-after-fix|user-skipped-after-escalation]. Fix cycles: [user-triggered|e2e-triggered|both]. [If deferred stories were included in the checklist and the user confirmed: Also mark stories N, M as deferred-passed.] IMPORTANT: Before staging, run `node .claude/scripts/transition-phase.js --pre-complete-checks --current --story M` (replacing M with the story number) to auto-check all acceptance criteria in the story file. Code was changed during the fix cycle, so you MUST re-run all Vitest-side quality gates (lint, type-check, build, vitest, test:quality) before committing. Playwright does NOT need a re-run — it already passed (or was explicitly marked `test.fixme()` via user escalation). If any Vitest-side gate fails, fix the issue and re-run until all gates pass. Then proceed to commit and transition to COMPLETE. [If spec-compliance-watchdog Option B was used: Also stage generated-docs/test-design/.] Stage the Playwright spec file web/e2e/epic-N-story-M-*.spec.ts along with the Vitest tests."
 
 **After Call C returns:**
 

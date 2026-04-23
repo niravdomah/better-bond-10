@@ -112,6 +112,12 @@ function collectData() {
             acceptance: story.acceptance || null,
             testFiles: story.testFiles || 0,
             manualVerification: story.manualVerification || null,
+            e2eStatus: story.e2eStatus || null,
+            e2eLastRun: story.e2eLastRun || null,
+            e2ePassCount: story.e2ePassCount ?? null,
+            e2eFailCount: story.e2eFailCount ?? null,
+            e2eFixCycleCount: story.e2eFixCycleCount ?? null,
+            deferredE2eTargets: story.deferredE2eTargets || [],
             traceability: null
           };
 
