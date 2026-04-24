@@ -111,6 +111,17 @@ Agents are explicitly authorized to run `git push origin main` at designated wor
 
 When an agent's instructions say to push, **execute the push command directly**. Do not add warnings, ask for confirmation, or skip it. If the push fails (e.g., no remote configured, authentication error), report the error to the user but do not retry — let them resolve it.
 
+## Generated Document Names
+
+Every AI-generated document under `generated-docs/` and every E2E spec under `web/e2e/` has exactly one correct filename shape. The machine-readable source of truth is [.claude/shared/generated-doc-conventions.json](./generated-doc-conventions.json); the human-readable mirror is [.claude/shared/naming-conventions.md](./naming-conventions.md).
+
+Two enforcement layers protect the conventions:
+
+- **PreToolUse hook (hard):** `.claude/hooks/enforce-generated-doc-names.js` runs on every `Write`/`Edit`/`MultiEdit` and blocks new files whose names don't match. Existing files on disk are grandfathered — the hook only stops new drift.
+- **Repo-wide audit:** `node .claude/scripts/validate-generated-doc-names.js` walks the tree and reports mismatches. Run this before a commit if you've been renaming files; it also doubles as a CI check.
+
+**The two-number rule** (memorize this): when the parent directory already identifies the epic (e.g., `generated-docs/stories/epic-N-[slug]/`), the filename carries **only the story number** — `story-3-role-aware-nav.md`, not `story-1-3-role-aware-nav.md`. When the parent directory is flat (e.g., `generated-docs/reviews/`, `web/e2e/`), the filename carries **both numbers** — `epic-1-story-3-role-aware-nav.spec.ts`. Adding a new document type requires adding an entry to the JSON schema; no code changes needed.
+
 ## Scoped Call Pattern
 
 All interactive agents are invoked using scoped calls — multiple focused Task invocations separated by orchestrator-driven `AskUserQuestion` prompts. Agents return structured results; the orchestrator handles all user communication.

@@ -469,6 +469,9 @@ When a feature IS the home page, clarify this in acceptance criteria:
 
 **Story file format** (`story-N-[slug].md`):
 
+> **Filename rule — no epic prefix.** The epic number lives in the parent directory (`epic-N-[slug]/`), NOT in the story filename. Write `story-3-role-aware-nav.md`, never `story-1-3-role-aware-nav.md`. A PreToolUse hook (`.claude/hooks/enforce-generated-doc-names.js`) enforces this and will reject writes that don't match. Full convention list: [.claude/shared/naming-conventions.md](../shared/naming-conventions.md) (schema: [generated-doc-conventions.json](../shared/generated-doc-conventions.json)).
+
+
 ```markdown
 # Story: [Title]
 
