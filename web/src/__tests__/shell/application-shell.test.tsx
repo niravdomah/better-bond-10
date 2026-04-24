@@ -4,7 +4,7 @@
  * Tests the BetterBond application shell (top nav, main region, footer) that
  * wraps every authenticated route in web/src/app/(protected)/layout.tsx.
  * These tests are the executable form of the acceptance criteria from:
- *   generated-docs/stories/epic-1-auth-shell-navigation/story-1-2-application-shell.md
+ *   generated-docs/stories/epic-1-auth-shell-navigation/story-2-application-shell.md
  *   generated-docs/test-design/epic-1-auth-shell-navigation/story-2-application-shell-test-design.md
  *
  * User-resolved BA decisions that drive shell behavior:

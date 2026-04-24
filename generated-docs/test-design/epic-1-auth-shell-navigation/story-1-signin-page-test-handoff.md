@@ -2,12 +2,12 @@
 
 > Engineering document for downstream agents. Not reviewed by the BA.
 
-**Source:** [story-1-1-signin-page-test-design.md](./story-1-1-signin-page-test-design.md)
+**Source:** [story-1-signin-page-test-design.md](./story-1-signin-page-test-design.md)
 **Epic:** 1 | **Story:** 1
 
 ## Coverage for WRITE-TESTS
 
-Every AC from `generated-docs/stories/epic-1-auth-shell-navigation/story-1-1-signin-page.md` maps to at least one example in the test-design document.
+Every AC from `generated-docs/stories/epic-1-auth-shell-navigation/story-1-signin-page.md` maps to at least one example in the test-design document.
 
 - AC-1: Unauthenticated user landing on `/` is routed to the sign-in page → Example 1
 - AC-2: Sign-in page shows branding, email, password, Sign In button → Example 1

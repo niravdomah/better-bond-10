@@ -3,8 +3,8 @@
  *
  * Tests the BetterBond sign-in page and NextAuth session behavior.
  * These tests are the executable form of the acceptance criteria from:
- *   generated-docs/stories/epic-1-auth-shell-navigation/story-1-1-signin-page.md
- *   generated-docs/test-design/epic-1-auth-shell-navigation/story-1-1-signin-page-test-design.md
+ *   generated-docs/stories/epic-1-auth-shell-navigation/story-1-signin-page.md
+ *   generated-docs/test-design/epic-1-auth-shell-navigation/story-1-signin-page-test-design.md
  *
  * User-resolved BA decisions (must be reflected in behavior):
  *  - BA-1 Option A: session identity = email address

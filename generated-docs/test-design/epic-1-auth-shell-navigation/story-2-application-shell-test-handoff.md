@@ -7,7 +7,7 @@
 
 ## Coverage for WRITE-TESTS
 
-Every AC from `generated-docs/stories/epic-1-auth-shell-navigation/story-1-2-application-shell.md` maps to at least one example in the test-design document.
+Every AC from `generated-docs/stories/epic-1-auth-shell-navigation/story-2-application-shell.md` maps to at least one example in the test-design document.
 
 - AC-1: Top nav, main region, and footer all visible on an authenticated page → Example 1
 - AC-2: Top nav and footer persist across navigation; only main region changes → Example 2
