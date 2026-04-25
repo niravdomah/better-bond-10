@@ -122,6 +122,16 @@ Two enforcement layers protect the conventions:
 
 **The two-number rule** (memorize this): when the parent directory already identifies the epic (e.g., `generated-docs/stories/epic-N-[slug]/`), the filename carries **only the story number** — `story-3-role-aware-nav.md`, not `story-1-3-role-aware-nav.md`. When the parent directory is flat (e.g., `generated-docs/reviews/`, `web/e2e/`), the filename carries **both numbers** — `epic-1-story-3-role-aware-nav.spec.ts`. Adding a new document type requires adding an entry to the JSON schema; no code changes needed.
 
+## Acceptance Criteria — Dependency Annotations
+
+ACs that depend on a route, component, or future story carry a trailing `[requires: ...]` tag. The classifier ([.claude/scripts/classify-manual-verification.js](../scripts/classify-manual-verification.js)) reads the tag, evaluates the dependencies against the current codebase, and tags each AC as **verifiable**, **deferred**, or **heuristic-deferred**. The code-reviewer's Call B uses these tags to render a three-section manual-verification checklist (Verifiable today / Deferred / Possibly deferred) — so the user is never asked to verify items the build can't yet expose.
+
+- **Per-story classification** (used by code-reviewer): `node .claude/scripts/classify-manual-verification.js --epic <N> --story <M>`.
+- **Per-item heuristic** (used by code-reviewer after rephrasing): `node .claude/scripts/classify-manual-verification.js --check-text "<rephrased item>"`.
+- **Repo-wide drift audit**: `node .claude/scripts/validate-ac-dependencies.js`.
+
+Full convention + worked examples: [.claude/shared/ac-dependency-annotations.md](./ac-dependency-annotations.md). Untagged ACs default to "verifiable" with a heuristic backstop — the convention is opt-in for accuracy, opt-out for trust.
+
 ## Scoped Call Pattern
 
 All interactive agents are invoked using scoped calls — multiple focused Task invocations separated by orchestrator-driven `AskUserQuestion` prompts. Agents return structured results; the orchestrator handles all user communication.

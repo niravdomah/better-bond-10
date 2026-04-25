@@ -357,6 +357,26 @@ function validateStories(epicNum) {
     }
   }
 
+  // Soft warning: AC dependency drift (untagged ACs that mention non-existent routes).
+  // The validator script is the source of truth; we shell out to it rather than
+  // duplicating the heuristic. Failure modes (missing script, bad JSON) are
+  // deliberately silent — drift detection is a nice-to-have, not a phase blocker.
+  try {
+    const { spawnSync } = require('child_process');
+    const driftScript = path.join('.claude', 'scripts', 'validate-ac-dependencies.js');
+    if (fs.existsSync(driftScript)) {
+      const driftResult = spawnSync('node', [driftScript, '--format=json'], { encoding: 'utf8' });
+      if (driftResult.stdout) {
+        const driftJson = JSON.parse(driftResult.stdout);
+        if (driftJson.status === 'drift' && Array.isArray(driftJson.drift)) {
+          for (const d of driftJson.drift) {
+            result.warnings.push(`${path.basename(d.storyFile)} ${d.ac}: heuristic-deferred (missing [requires:] annotation) — ${d.unmetDeps.join('; ')}`);
+          }
+        }
+      }
+    }
+  } catch { /* best-effort soft warning */ }
+
   return result;
 }
 

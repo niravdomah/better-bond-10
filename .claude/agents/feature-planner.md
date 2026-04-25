@@ -471,6 +471,12 @@ When a feature IS the home page, clarify this in acceptance criteria:
 
 > **Filename rule — no epic prefix.** The epic number lives in the parent directory (`epic-N-[slug]/`), NOT in the story filename. Write `story-3-role-aware-nav.md`, never `story-1-3-role-aware-nav.md`. A PreToolUse hook (`.claude/hooks/enforce-generated-doc-names.js`) enforces this and will reject writes that don't match. Full convention list: [.claude/shared/naming-conventions.md](../shared/naming-conventions.md) (schema: [generated-doc-conventions.json](../shared/generated-doc-conventions.json)).
 
+> **Annotate cross-page acceptance criteria.** Any AC whose verification depends on a route, component, or future story that may not exist when this story enters QA must carry a trailing `[requires: ...]` tag (inline-code, comma-separated `key=value` pairs). Tag keys: `route=<path>`, `story=<N>.<M>`, `hint=<free text>`. Example:
+>
+>     - [ ] AC-6: …Payment Management link is highlighted `[requires: route=/payment-management, hint=Story 1.4 adds this route]`
+>
+> Untagged ACs default to "verifiable today". The drift validator (`node .claude/scripts/validate-ac-dependencies.js`) flags ACs whose text mentions `/path`-style references without an annotation. Full convention: [.claude/shared/ac-dependency-annotations.md](../shared/ac-dependency-annotations.md).
+
 
 ```markdown
 # Story: [Title]

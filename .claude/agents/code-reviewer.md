@@ -472,13 +472,51 @@ Read the story file's **Story Metadata** block and check the `Route` field.
 
 Present a testing checklist based on the story's acceptance criteria. Frame it naturally in **plain, non-technical language** — describe what the user will see and do, not implementation details. Our users are most often non-developers.
 
+**Classify each AC before composing the checklist (mandatory).** Run:
+
+```bash
+node .claude/scripts/classify-manual-verification.js --epic <N> --story <M>
 ```
+
+Parse the JSON `acs` array. Each entry has a `classification` of `verifiable`, `deferred`, or `heuristic-deferred` plus optional `unmetDeps` and `hint` fields. Never put a `deferred` or `heuristic-deferred` AC in the "Verifiable today" section — those exist precisely because the user can't act on them right now.
+
+**Then compose plain-language items.** For every AC you compose into prose, if your phrasing introduces a literal `/<path>` (e.g., you rephrased AC-6 as *"On /payment-management, only the Payment Management link is highlighted"*), run:
+
+```bash
+node .claude/scripts/classify-manual-verification.js --check-text "<the rephrased item>"
+```
+
+If the result has any `unresolved` paths, escalate that item to the heuristic-deferred section even if the source AC was classified `verifiable`. (ACs often refer to pages by name in source — *"the Payment Management screen"* — but the rephrased item exposes the URL, which is where the verification gap actually bites the user.)
+
+**Render the checklist with three sections.** Use exactly these headings — the orchestrator renders them verbatim and the user relies on the structure:
+
+```
+## Verifiable today
+
 Time for a quick manual check. Here's what to look for at http://localhost:3000[route]:
 
-[acceptance criteria rephrased as user-observable actions/outcomes]
+- [ ] (AC-1) [plain-language phrasing]
+- [ ] (AC-2) [plain-language phrasing]
 
 Also worth checking: no error messages on screen, loading indicators appear while data loads, and the layout looks right on your screen.
+
+## Deferred — will re-verify on a later story
+
+These items reference routes/pages that don't exist in this build. Skip them today; they'll be folded into the verification checklist for the story that adds the underlying capability.
+
+- (AC-6) [plain-language phrasing]
+  - Missing: [unmetDeps from classifier]
+  - [hint from classifier, if present]
+
+## Possibly deferred (heuristic — please use judgment)
+
+The following items mention paths that don't have a page yet. They may be testable via a workaround, or you may want to skip them until the page lands.
+
+- (AC-7) [plain-language phrasing]
+  - Heuristic match: [unresolved path from --check-text]
 ```
+
+If a section has no items, omit that section's heading entirely (don't render an empty "Deferred" header).
 
 **Runtime verification items:** If the orchestrator provided a test-handoff document path in the Call B prompt, read it. Otherwise, search using glob pattern `generated-docs/test-design/**/story-M-*-test-handoff.md` (where M is the current story number).
 
