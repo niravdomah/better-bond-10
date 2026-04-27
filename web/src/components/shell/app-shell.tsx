@@ -30,6 +30,7 @@ import { Menu } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { UserMenu } from '@/components/auth/user-menu';
+import { TopNav } from '@/components/nav/top-nav';
 import { Button } from '@/components/ui/button';
 
 // Breakpoint boundary — below this width the inline nav list collapses to
@@ -129,28 +130,23 @@ export function AppShell({ children }: AppShellProps): React.ReactElement {
 
           {/* Inline nav list — visible from the tablet breakpoint up. On
               mobile it's conditionally rendered inside the anchored
-              dropdown below. */}
+              dropdown below. Story 1.3 populates the list with role-aware
+              links and active-state highlighting. */}
           {!isMobile && (
-            <ul
-              aria-label="Primary"
-              className="ml-4 hidden items-center gap-4 md:flex"
-            >
-              {/* Populated by Story 1.3 (role-aware nav). Rendered as an empty
-                  list now so the landmark and role=list node exist for
-                  downstream tests and for the shell structure itself. */}
-            </ul>
+            <div className="ml-4 hidden md:flex">
+              <TopNav variant="inline" />
+            </div>
           )}
 
-          {/* BA-1 Option A — anchored dropdown below the top nav */}
+          {/* BA-1 Option A — anchored dropdown below the top nav.
+              BA-2 Option B — menu-list variant of the active-link highlight. */}
           {mobileDropdownOpen && (
             <div
               role="menu"
               aria-label="Primary navigation"
               className="absolute left-0 top-full mt-1 w-full border-b border-border bg-background p-4 shadow-md"
             >
-              <ul aria-label="Primary" className="flex flex-col gap-3">
-                {/* Populated by Story 1.3 — role-aware links go here. */}
-              </ul>
+              <TopNav variant="menu" />
             </div>
           )}
         </div>

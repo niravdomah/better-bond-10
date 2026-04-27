@@ -19,25 +19,25 @@
 ## Acceptance Criteria
 
 ### Happy Path — shared links
-- [ ] AC-1: Given I am signed in as an admin, when I look at the top nav, then I see links for Dashboard, Payment Management, Payments Made, and Users
-- [ ] AC-2: Given I am signed in as a viewer, when I look at the top nav, then I see links for Dashboard and Payments Made only
-- [ ] AC-3: Given I am signed in as a viewer, when I look at the top nav, then I do not see a Payment Management link at all (the link is hidden, not merely disabled)
-- [ ] AC-4: Given I am signed in as a viewer, when I look at the top nav, then I do not see a Users link at all
+- [x] AC-1: Given I am signed in as an admin, when I look at the top nav, then I see links for Dashboard, Payment Management, Payments Made, and Users
+- [x] AC-2: Given I am signed in as a viewer, when I look at the top nav, then I see links for Dashboard and Payments Made only
+- [x] AC-3: Given I am signed in as a viewer, when I look at the top nav, then I do not see a Payment Management link at all (the link is hidden, not merely disabled)
+- [x] AC-4: Given I am signed in as a viewer, when I look at the top nav, then I do not see a Users link at all
 
 ### Active state
-- [ ] AC-5: Given I am signed in, when I am on the Dashboard, then the Dashboard link is visually highlighted in the nav (e.g., distinct color, underline, or bold — in line with the MortgageMax palette)
-- [ ] AC-6: Given I am signed in as an admin, when I am on the Payment Management screen, then the Payment Management link is visually highlighted in the nav
-- [ ] AC-7: Given I am signed in, when I am on the Payments Made screen, then the Payments Made link is visually highlighted in the nav
-- [ ] AC-8: Given I am signed in as an admin, when I am on the Users screen, then the Users link is visually highlighted in the nav
+- [x] AC-5: Given I am signed in, when I am on the Dashboard, then the Dashboard link is visually highlighted in the nav (e.g., distinct color, underline, or bold — in line with the MortgageMax palette)
+- [x] AC-6: Given I am signed in as an admin, when I am on the Payment Management screen, then the Payment Management link is visually highlighted in the nav
+- [x] AC-7: Given I am signed in, when I am on the Payments Made screen, then the Payments Made link is visually highlighted in the nav
+- [x] AC-8: Given I am signed in as an admin, when I am on the Users screen, then the Users link is visually highlighted in the nav
 
 ### Navigation behavior
-- [ ] AC-9: Given I am signed in, when I click any nav link, then I navigate to that screen's route without a full-page reload
-- [ ] AC-10: Given I am signed in, when I am on a screen and click its own nav link, then I stay on the same page without error
+- [x] AC-9: Given I am signed in, when I click any nav link, then I navigate to that screen's route without a full-page reload
+- [x] AC-10: Given I am signed in, when I am on a screen and click its own nav link, then I stay on the same page without error
 
 ### Accessibility
-- [ ] AC-11: Given I use only the keyboard, when I tab through the top nav, then I reach every visible link in reading order and can activate it with Enter
-- [ ] AC-12: Given I use a screen reader, when I encounter the top nav, then each link announces its name (Dashboard, Payment Management, Payments Made, Users) and the currently active link is announced as the current page
-- [ ] AC-13: Given I view the nav in either light or dark theme, when I look at the active link's highlight, then the highlight itself meets WCAG 2.1 AA contrast against the nav background (3:1 for the visual indicator, 4.5:1 for the text)
+- [x] AC-11: Given I use only the keyboard, when I tab through the top nav, then I reach every visible link in reading order and can activate it with Enter
+- [x] AC-12: Given I use a screen reader, when I encounter the top nav, then each link announces its name (Dashboard, Payment Management, Payments Made, Users) and the currently active link is announced as the current page
+- [x] AC-13: Given I view the nav in either light or dark theme, when I look at the active link's highlight, then the highlight itself meets WCAG 2.1 AA contrast against the nav background (3:1 for the visual indicator, 4.5:1 for the text)
 
 ## API Endpoints (from OpenAPI spec)
 
